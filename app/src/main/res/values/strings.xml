@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">WhatsAppCLone</string>
+    <string name="title_activity_login">LoginActivity</string>
+    <string name="title_activity_welcome">WelcomeActivity</string>
+    <string name="title_activity_contacts">ContactsActivity</string>
+    <string name="title_activity_whatsapp">ActivityWhatsapp</string>
+    <string name="title_activity_whatsappclone">whatsappclone</string>
+</resources>
