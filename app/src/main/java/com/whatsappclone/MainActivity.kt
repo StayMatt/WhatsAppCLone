@@ -3,30 +3,41 @@ package com.whatsappclone
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.compose.BackHandler
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Modifier
+import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
-import com.whatsappclone.composables.AddContactScreen
-import com.whatsappclone.composables.ChatScreen
-import com.whatsappclone.composables.ChatsScreen
+import com.google.firebase.firestore.FirebaseFirestore
 import com.whatsappclone.composables.MainScreen
-import com.whatsappclone.composables.RegisterNumberScreen
 import com.whatsappclone.ui.theme.WhatsAppCLoneTheme
-
-
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // ✅ Inicializa Firebase correctamente
+        try {
+            FirebaseApp.initializeApp(this)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        // ✅ Asegura la conexión con Firestore (inicializa antes del UI)
+        val db = FirebaseFirestore.getInstance()
+
+        // (Opcional pero recomendado) Configurar caché offline
+        db.firestoreSettings = com.google.firebase.firestore.FirebaseFirestoreSettings.Builder()
+            .setPersistenceEnabled(true)
+            .build()
+
+        // ✅ Verifica sesión activa antes de cargar la interfaz
+        val auth = FirebaseAuth.getInstance()
+        val currentUser = auth.currentUser
+        if (currentUser != null) {
+            println("🔥 Sesión activa con: ${currentUser.phoneNumber ?: "sin número"}")
+        } else {
+            println("🚪 No hay sesión activa, mostrando pantalla de bienvenida.")
+        }
+
+        // ✅ Cargar interfaz principal
         setContent {
             WhatsAppCLoneTheme {
                 MainScreen()

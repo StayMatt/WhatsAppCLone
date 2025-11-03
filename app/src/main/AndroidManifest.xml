@@ -3,6 +3,16 @@
 
     <!-- Permiso de Internet -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Permisos -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Para Android < 13 -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <!-- Para Android 13+ (si quieres soportar de forma específica) -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
+    <!-- Indica que la cámara NO es obligatoria (evita que Play Store filtre dispositivos sin cámara) -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
 
     <application
         android:allowBackup="true"
