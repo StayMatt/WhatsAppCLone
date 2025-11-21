@@ -45,10 +45,13 @@ fun ChatsScreen(
     val db = FirebaseFirestore.getInstance()
     val scope = rememberCoroutineScope()
 
+    // Lista de chats obtenidos
     var chats by remember { mutableStateOf(listOf<Chat>()) }
+
+    // Controla la apertura del menú superior
     var showMenu by remember { mutableStateOf(false) }
 
-    // 🔹 Listener de chats
+    // Escuchar cambios en la colección de chats del usuario
     DisposableEffect(Unit) {
         val listener = db.collection("chats")
             .whereArrayContains("participants", currentUser.uid)
@@ -67,16 +70,19 @@ fun ChatsScreen(
                     val tempList = mutableListOf<Chat>()
                     val usersCollection = db.collection("users")
 
+                    // Procesar cada chat recibido
                     for (doc in snapshot.documents) {
                         val chat = doc.toObject(Chat::class.java)?.copy(chatId = doc.id) ?: continue
 
                         if (chat.type == "private") {
+                            // Obtener el ID del contacto (el otro usuario)
                             val contactId = chat.participants.firstOrNull { it != currentUser.uid }
                             var displayName = "Usuario desconocido"
                             var profileImage = ""
 
                             if (!contactId.isNullOrBlank()) {
                                 try {
+                                    // Buscar el contacto guardado en lista del usuario
                                     val contactSnap = db.collection("users")
                                         .document(currentUser.uid)
                                         .collection("contacts")
@@ -88,6 +94,7 @@ fun ChatsScreen(
                                     val contactName = contactDoc?.getString("name")
                                     val contactPhone = contactDoc?.getString("phone")
 
+                                    // Obtener foto y datos del usuario real
                                     val userSnap = usersCollection.document(contactId.trim()).get().await()
                                     profileImage = userSnap.getString("profileImage") ?: ""
 
@@ -99,17 +106,15 @@ fun ChatsScreen(
                                 } catch (_: Exception) {}
                             }
 
-                            tempList.add(
-                                chat.copy(
-                                    name = displayName,
-                                    image = profileImage
-                                )
-                            )
+                            // Añadir chat privado formateado
+                            tempList.add(chat.copy(name = displayName, image = profileImage))
                         } else {
-                            tempList.add(chat) // chat grupal
+                            // Añadir chat grupal tal cual
+                            tempList.add(chat)
                         }
                     }
 
+                    // Ordenar chats por último mensaje
                     chats = tempList.sortedByDescending { it.lastTimestamp }
                 }
             }
@@ -121,10 +126,19 @@ fun ChatsScreen(
         topBar = {
             TopAppBar(
                 title = { Text("WhatsAppClone", color = WhatsAppWhite, fontWeight = FontWeight.Bold) },
+
+                // Botones superiores (contactos, menú más, perfil)
                 actions = {
-                    IconButton(onClick = onOpenContacts) { Icon(Icons.Default.Message, contentDescription = "Contactos", tint = WhatsAppWhite) }
+                    IconButton(onClick = onOpenContacts) {
+                        Icon(Icons.Default.Message, contentDescription = "Contactos", tint = WhatsAppWhite)
+                    }
+
                     Box {
-                        IconButton(onClick = { showMenu = !showMenu }) { Icon(Icons.Default.Add, contentDescription = "Más opciones", tint = WhatsAppWhite) }
+                        IconButton(onClick = { showMenu = !showMenu }) {
+                            Icon(Icons.Default.Add, contentDescription = "Más opciones", tint = WhatsAppWhite)
+                        }
+
+                        // Menú desplegable (Agregar contacto / Crear grupo)
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                             DropdownMenuItem(text = { Text("Agregar contacto") }, onClick = {
                                 showMenu = false
@@ -136,18 +150,28 @@ fun ChatsScreen(
                             })
                         }
                     }
-                    IconButton(onClick = onOpenProfile) { Icon(Icons.Default.Person, contentDescription = "Perfil", tint = WhatsAppWhite) }
+
+                    IconButton(onClick = onOpenProfile) {
+                        Icon(Icons.Default.Person, contentDescription = "Perfil", tint = WhatsAppWhite)
+                    }
                 },
                 colors = TopAppBarDefaults.mediumTopAppBarColors(containerColor = WhatsAppGreen)
             )
         },
         containerColor = WhatsAppBackground
     ) { padding ->
+
+        // Si no hay chats, mostrar mensaje
         if (chats.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
                 Text("No tienes chats activos", color = WhatsAppTextGray, fontSize = 16.sp)
             }
         } else {
+
+            // Lista de chats
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
@@ -167,9 +191,11 @@ fun ChatsScreen(
 @Composable
 fun ChatItem(chat: Chat, onClick: () -> Unit) {
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+
+    // Detectar si el mensaje es no leído para mostrar el punto verde
     val hasUnread = chat.lastSenderId != currentUserId && chat.lastMessage.isNotBlank()
 
-    // 🔹 Detectar tipo de mensaje
+    // Detectar si el último mensaje es una imagen (comienza por "/9")
     val lastMessageDisplay = if (chat.lastMessage.startsWith("/9")) {
         "📷 Foto"
     } else {
@@ -183,7 +209,8 @@ fun ChatItem(chat: Chat, onClick: () -> Unit) {
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Avatar con borde
+
+        // Avatar con borde de mensaje no leído
         Box(
             modifier = Modifier
                 .size(50.dp)
@@ -196,6 +223,8 @@ fun ChatItem(chat: Chat, onClick: () -> Unit) {
                 ),
             contentAlignment = Alignment.Center
         ) {
+
+            // Imagen de perfil o inicial si no tiene
             if (chat.image.isNotBlank()) {
                 AsyncImage(
                     model = chat.image,
@@ -214,6 +243,8 @@ fun ChatItem(chat: Chat, onClick: () -> Unit) {
         Spacer(modifier = Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
+
+            // Nombre + hora del mensaje
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -229,16 +260,14 @@ fun ChatItem(chat: Chat, onClick: () -> Unit) {
                 if (chat.lastTimestamp > 0L) {
                     val timeText = java.text.SimpleDateFormat("HH:mm", Locale.getDefault())
                         .format(Date(chat.lastTimestamp))
-                    Text(
-                        timeText,
-                        fontSize = 12.sp,
-                        color = WhatsAppTextGray
-                    )
+
+                    Text(timeText, fontSize = 12.sp, color = WhatsAppTextGray)
                 }
             }
 
             Spacer(modifier = Modifier.height(4.dp))
 
+            // Último mensaje mostrado
             Text(
                 lastMessageDisplay,
                 fontSize = 14.sp,
@@ -247,6 +276,7 @@ fun ChatItem(chat: Chat, onClick: () -> Unit) {
             )
         }
 
+        // Punto verde de mensaje no leído
         if (hasUnread) {
             Box(
                 modifier = Modifier

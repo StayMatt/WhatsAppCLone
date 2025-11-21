@@ -29,9 +29,12 @@ fun AddContactScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+
+    // Estados para los campos del formulario
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
 
+    // Usuario actual autenticado (si no existe, no renderiza)
     val currentUser = FirebaseAuth.getInstance().currentUser ?: return
     val db = FirebaseFirestore.getInstance()
 
@@ -40,6 +43,7 @@ fun AddContactScreen(
             TopAppBar(
                 title = { Text("Agregar Contacto", fontWeight = FontWeight.Bold, color = WhatsAppWhite) },
                 navigationIcon = {
+                    // Botón para volver atrás
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = WhatsAppWhite)
                     }
@@ -49,6 +53,7 @@ fun AddContactScreen(
         },
         containerColor = WhatsAppWhite
     ) { padding ->
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -56,8 +61,9 @@ fun AddContactScreen(
                 .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Texto introductorio
             Text(
-                text = "Agrega un contacto para empezar a chatear con él o ella en WhatsAppClone. ¡Es rápido y seguro!",
+                text = "Agrega un contacto para empezar a chatear con él o ella en WhatsAppClone.",
                 color = WhatsAppTextGray,
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center,
@@ -79,10 +85,11 @@ fun AddContactScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Campo de teléfono (solo números y máximo 9 dígitos)
+            // Campo de teléfono (solo números, máximo 9 dígitos)
             OutlinedTextField(
                 value = phone,
                 onValueChange = { input ->
+                    // Validación básica: solo números y max 9 dígitos
                     if (input.length <= 9 && input.all { it.isDigit() }) phone = input
                 },
                 label = { Text("Número de teléfono") },
@@ -97,35 +104,40 @@ fun AddContactScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Botón de agregar contacto
+            // Botón para guardar el contacto
             Button(
                 onClick = {
+                    // Validación mínima
                     if (name.isNotBlank() && phone.length == 9) {
-                        val fullPhone = "+51$phone" // 🔹 Agregar prefijo internacional
+
+                        val fullPhone = "+51$phone" // Prefijo de Perú
                         val contactId = UUID.randomUUID().toString()
 
-                        // Verificar si el número está registrado
+                        // Consulta para verificar si el contacto está registrado en la app
                         db.collection("users")
                             .whereEqualTo("phone", fullPhone)
                             .get()
                             .addOnSuccessListener { query ->
+
+                                // Saber si el número pertenece a un usuario registrado
                                 val isRegistered = !query.isEmpty
                                 val contactUserId =
                                     if (isRegistered) query.documents.first().getString("uid") ?: "" else ""
 
+                                // Crear objeto Contact para guardar
                                 val contact = Contact(
                                     contactId = contactId,
                                     userId = currentUser.uid,
                                     contactUserId = contactUserId,
                                     name = name,
-                                    phone = fullPhone, // 🔹 Guardar con +51
+                                    phone = fullPhone,
                                     profileImage = "",
                                     status = if (isRegistered) "Disponible" else "No registrado",
                                     isRegistered = isRegistered,
                                     addedAt = System.currentTimeMillis()
                                 )
 
-                                // Guardar contacto en la subcolección "contacts" del usuario
+                                // Guardar dentro de la subcolección contacts del usuario actual
                                 db.collection("users")
                                     .document(currentUser.uid)
                                     .collection("contacts")
@@ -142,7 +154,9 @@ fun AddContactScreen(
                             .addOnFailureListener {
                                 Toast.makeText(context, "Error al verificar el contacto ⚠", Toast.LENGTH_SHORT).show()
                             }
+
                     } else {
+                        // Si falta nombre o no tiene 9 dígitos
                         Toast.makeText(context, "Verifica los datos (9 dígitos y nombre)", Toast.LENGTH_SHORT).show()
                     }
                 },

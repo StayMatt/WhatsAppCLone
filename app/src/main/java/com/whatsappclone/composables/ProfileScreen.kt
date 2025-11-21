@@ -31,11 +31,12 @@ fun ProfileScreen(
     val currentUser = FirebaseAuth.getInstance().currentUser
     val db = FirebaseFirestore.getInstance()
 
+    // Variables para almacenar datos del usuario
     var name by remember { mutableStateOf<String?>(null) }
     var phone by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
 
-    // 🔹 Obtener datos del usuario desde Firestore
+    // 🔹 Cargar información del usuario desde Firestore
     LaunchedEffect(currentUser?.uid) {
         currentUser?.uid?.let { uid ->
             db.collection("users").document(uid)
@@ -45,17 +46,20 @@ fun ProfileScreen(
                         name = snapshot.getString("name")
                         phone = snapshot.getString("phone")
                     } else {
+                        // Si no hay documento, usar info básica del auth
                         name = null
                         phone = currentUser.phoneNumber ?: "Sin teléfono"
                     }
                     loading = false
                 }
                 .addOnFailureListener {
+                    // Error al consultar Firestore
                     name = "Error al cargar"
                     phone = "-"
                     loading = false
                 }
         } ?: run {
+            // No hubo usuario autenticado
             name = "Usuario no autenticado"
             phone = "-"
             loading = false
@@ -72,6 +76,7 @@ fun ProfileScreen(
                         color = WhatsAppWhite
                     )
                 },
+                // Botón de volver
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -89,8 +94,8 @@ fun ProfileScreen(
         containerColor = WhatsAppWhite
     ) { padding ->
 
+        // Mostrar indicador de carga si aún no se han obtenido datos
         if (loading) {
-            // 🌀 Indicador de carga
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -100,7 +105,7 @@ fun ProfileScreen(
                 CircularProgressIndicator(color = WhatsAppGreen)
             }
         } else {
-            // 🟩 Contenido principal
+            // 🟩 Contenido principal del perfil
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -109,7 +114,8 @@ fun ProfileScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // 🔹 Tarjeta de información del usuario
+
+                // Tarjeta con foto inicial, nombre y teléfono
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -121,7 +127,8 @@ fun ProfileScreen(
                             .padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Avatar con inicial
+
+                        // 🔹 Avatar con inicial del nombre o número
                         Box(
                             modifier = Modifier
                                 .size(90.dp)
@@ -141,6 +148,7 @@ fun ProfileScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
+                        // 🔹 Nombre del usuario
                         Text(
                             text = name?.takeIf { it.isNotBlank() } ?: phone ?: "Sin información",
                             fontSize = 20.sp,
@@ -150,6 +158,7 @@ fun ProfileScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
+                        // 🔹 Teléfono del usuario
                         Text(
                             text = phone ?: "Sin teléfono",
                             fontSize = 16.sp,
@@ -158,13 +167,15 @@ fun ProfileScreen(
                     }
                 }
 
-                // 🔹 Botón de cerrar sesión
+                // 🔹 Botón para cerrar sesión
                 Button(
                     onClick = {
                         val preferences = context.getSharedPreferences("my_prefs", android.content.Context.MODE_PRIVATE)
                         preferences.edit().putBoolean("ESTA_LOGUEADO", false).apply()
+
                         FirebaseAuth.getInstance().signOut()
                         onLogout?.invoke()
+
                         Toast.makeText(context, "Sesión cerrada", Toast.LENGTH_SHORT).show()
                     },
                     modifier = Modifier

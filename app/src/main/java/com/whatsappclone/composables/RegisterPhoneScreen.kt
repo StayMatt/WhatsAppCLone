@@ -39,6 +39,7 @@ fun RegisterPhoneScreen(
 
     Scaffold(
         topBar = {
+            // Barra superior con botón para regresar
             TopAppBar(
                 title = { Text("Registrar número", color = WhatsAppWhite) },
                 navigationIcon = {
@@ -61,6 +62,7 @@ fun RegisterPhoneScreen(
         ) {
             Spacer(modifier = Modifier.height(32.dp))
 
+            // Título principal
             Text(
                 text = "Ingresa tu número telefónico",
                 style = MaterialTheme.typography.headlineSmall,
@@ -70,6 +72,7 @@ fun RegisterPhoneScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Texto informativo
             Text(
                 text = "Recibirás un código de verificación para poder acceder a tus chats, contactos y grupos. ¡Es rápido y seguro!",
                 style = MaterialTheme.typography.bodyMedium,
@@ -80,11 +83,11 @@ fun RegisterPhoneScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Campo de número de teléfono
+            // Campo para ingresar el número de teléfono
             OutlinedTextField(
                 value = phoneNumber,
                 onValueChange = { input ->
-                    // Permitir solo números y máximo 9 dígitos
+                    // Solo se permiten números y máximo 9 dígitos
                     if (input.length <= 9 && input.all { it.isDigit() }) {
                         phoneNumber = input
                     }
@@ -106,7 +109,7 @@ fun RegisterPhoneScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Botón enviar código
+            // Botón que envía el código de verificación
             Button(
                 onClick = {
                     when {
@@ -117,22 +120,27 @@ fun RegisterPhoneScreen(
                             mensaje = "El número debe tener exactamente 9 dígitos."
                         }
                         else -> {
-                            // Agregar el prefijo +51 si no está incluido
+                            // Formatear número con +51
                             val formattedNumber = if (phoneNumber.startsWith("+51")) phoneNumber else "+51$phoneNumber"
 
+                            // Configurar opciones para Firebase Auth
                             val options = PhoneAuthOptions.newBuilder(auth)
-                                .setPhoneNumber(formattedNumber)
-                                .setTimeout(60L, TimeUnit.SECONDS)
-                                .setActivity(activity)
+                                .setPhoneNumber(formattedNumber)       // Número destino
+                                .setTimeout(60L, TimeUnit.SECONDS)    // Tiempo límite
+                                .setActivity(activity)                // Actividad actual
                                 .setCallbacks(object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+
+                                    // Verificación automática (a veces llega sin código)
                                     override fun onVerificationCompleted(credential: com.google.firebase.auth.PhoneAuthCredential) {
                                         mensaje = "Verificación automática completada ✅"
                                     }
 
+                                    // Si algo falla (número inválido, SMS bloqueado, etc.)
                                     override fun onVerificationFailed(e: FirebaseException) {
                                         mensaje = "Error: ${e.message}"
                                     }
 
+                                    // Cuando Firebase realmente envía el código
                                     override fun onCodeSent(
                                         verificationId: String,
                                         token: PhoneAuthProvider.ForceResendingToken
@@ -142,6 +150,8 @@ fun RegisterPhoneScreen(
                                     }
                                 })
                                 .build()
+
+                            // Enviar SMS
                             PhoneAuthProvider.verifyPhoneNumber(options)
                         }
                     }
@@ -152,7 +162,7 @@ fun RegisterPhoneScreen(
                 Text("Enviar código", color = WhatsAppWhite)
             }
 
-            // Mensaje de estado
+            // Texto con mensajes de estado
             if (mensaje.isNotBlank()) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(

@@ -38,15 +38,17 @@ fun ContactsScreen(
 ) {
     val context = LocalContext.current
     val currentUser = FirebaseAuth.getInstance().currentUser ?: return
+
+    // Estado proveniente del ViewModel
     val contacts by viewModel.contacts.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
 
-    // Cargar contactos al mostrar la pantalla
+    // 🔹 Cargar contactos al entrar a la pantalla
     LaunchedEffect(currentUser.uid) {
         viewModel.loadContacts(currentUser.uid)
     }
 
-    // Mostrar errores como Toast
+    // 🔹 Mostrar errores (si ocurre algo en Firestore)
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
@@ -57,32 +59,43 @@ fun ContactsScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Contactos", fontWeight = FontWeight.Bold, color = WhatsAppWhite) },
+
+                // 🔹 Botón para volver atrás
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = WhatsAppWhite)
                     }
                 },
+
+                // 🔹 Botón para agregar contactos manualmente
                 actions = {
                     IconButton(onClick = onAddContact) {
                         Icon(Icons.Default.Add, contentDescription = "Agregar contacto", tint = WhatsAppWhite)
                     }
                 },
+
                 colors = TopAppBarDefaults.mediumTopAppBarColors(containerColor = WhatsAppGreen)
             )
         },
+
         containerColor = WhatsAppBackground
     ) { padding ->
+        // 🔹 Lista completa de contactos
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
+
             items(contacts) { contact ->
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
+
+                            // Evitar abrir chat con usuarios NO registrados
                             if (!contact.isRegistered) {
                                 Toast.makeText(
                                     context,
@@ -92,12 +105,19 @@ fun ContactsScreen(
                                 return@clickable
                             }
 
+                            // 🔹 Crear o abrir un chat privado usando el ViewModel
                             viewModel.startOrGetPrivateChat(
                                 currentUser.uid,
                                 contact.contactUserId
                             ) { chatId, chatName ->
+
                                 if (chatId.isNotEmpty()) {
-                                    onChatReady(chatId, chatName, "private", listOf(currentUser.uid, contact.contactUserId))
+                                    onChatReady(
+                                        chatId,
+                                        chatName,
+                                        "private",
+                                        listOf(currentUser.uid, contact.contactUserId)
+                                    )
                                 } else {
                                     Toast.makeText(context, "No se pudo abrir el chat", Toast.LENGTH_SHORT).show()
                                 }
@@ -107,7 +127,7 @@ fun ContactsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 )
                 {
-                    // Avatar circular (imagen o inicial)
+                    // 🔹 Avatar circular
                     Box(
                         modifier = Modifier
                             .size(50.dp)
@@ -116,6 +136,7 @@ fun ContactsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         if (contact.profileImage.isNotBlank()) {
+                            // Si tiene imagen, mostrarla
                             Image(
                                 painter = rememberAsyncImagePainter(contact.profileImage),
                                 contentDescription = contact.name,
@@ -124,6 +145,7 @@ fun ContactsScreen(
                                     .clip(CircleShape)
                             )
                         } else {
+                            // Si NO tiene imagen, mostrar inicial
                             Text(
                                 text = contact.name.firstOrNull()?.uppercase() ?: "?",
                                 color = WhatsAppWhite,
@@ -135,20 +157,24 @@ fun ContactsScreen(
 
                     Spacer(modifier = Modifier.width(12.dp))
 
+                    // 🔹 Nombre, teléfono y estado
                     Column(modifier = Modifier.weight(1f)) {
                         Text(contact.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.Black)
                         Text(contact.phone, fontSize = 14.sp, color = WhatsAppTextGray)
+
                         if (contact.status.isNotBlank()) {
                             Text(contact.status, fontSize = 12.sp, color = WhatsAppTextGray)
                         }
                     }
 
+                    // Flecha indicando que se puede abrir chat
                     Icon(
                         Icons.Default.ArrowForward,
                         contentDescription = "Ir al chat",
                         tint = if (contact.isRegistered) WhatsAppGreen else Color.Gray
                     )
                 }
+
                 Divider()
             }
         }

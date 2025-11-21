@@ -56,13 +56,25 @@ fun ChatScreen(
     val db = FirebaseFirestore.getInstance()
     val scope = rememberCoroutineScope()
 
+    // Lista de mensajes
     var messages by remember { mutableStateOf<List<Message>>(emptyList()) }
+
+    // Texto del input
     var inputText by remember { mutableStateOf("") }
+
+    // Nombre del chat (cambia según contacto o grupo)
     var chatTitle by remember { mutableStateOf(chatName) }
-    var chatStatus by remember { mutableStateOf("En línea") } // estado simulado
+
+    // Estado del usuario (simulado)
+    var chatStatus by remember { mutableStateOf("En línea") }
+
+    // Texto de "X te agregó"
     var groupAddedText by remember { mutableStateOf<String?>(null) }
+
+    // Mapa con datos de usuarios (id → User)
     val usersMap = remember { mutableStateMapOf<String, User>() }
 
+    // Permisos de cámara
     var hasCameraPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
@@ -70,12 +82,15 @@ fun ChatScreen(
         )
     }
 
+    // Imagen seleccionada antes de enviar
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
 
+    // Lanzador de permisos de cámara
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted -> hasCameraPermission = isGranted }
 
+    // Seleccionar imagen de galería
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -83,9 +98,11 @@ fun ChatScreen(
         else Toast.makeText(context, "No se seleccionó ninguna imagen", Toast.LENGTH_SHORT).show()
     }
 
+    // Tomar foto con cámara
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
     ) { bitmap ->
+        // Cuando se toma la foto, convertir a Base64 y enviar
         if (bitmap != null) {
             val base64Image = encodeImageToBase64(bitmap)
             val message = Message(
@@ -105,26 +122,32 @@ fun ChatScreen(
     val usersRef = db.collection("users")
     val chatsRef = db.collection("chats").document(chatId)
 
-    // Cargar participantes y nombres
+    // Cargar datos del contacto o grupo al abrir el chat
     LaunchedEffect(chatId) {
         try {
             if (chatType == "private") {
+                // Obtiene ID del otro usuario
                 val otherUserId =
                     participants.firstOrNull { it != currentUser.uid } ?: return@LaunchedEffect
+
+                // Buscar contacto guardado localmente
                 val contactSnap = db.collection("users")
                     .document(currentUser.uid)
                     .collection("contacts")
                     .whereEqualTo("contactUserId", otherUserId)
                     .get()
                     .await()
+
                 val contactDoc = contactSnap.documents.firstOrNull()
                 val contactName = contactDoc?.getString("name")
                 val contactPhone = contactDoc?.getString("phone")
 
+                // Cargar datos del usuario desde Firebase
                 val snap = usersRef.document(otherUserId).get().await()
                 val otherUser = snap.toObject(User::class.java) ?: User(uid = otherUserId)
                 usersMap[otherUserId] = otherUser
 
+                // Priorizar nombre guardado en contactos
                 chatTitle = when {
                     !contactName.isNullOrBlank() -> contactName
                     !contactPhone.isNullOrBlank() -> contactPhone
@@ -132,20 +155,25 @@ fun ChatScreen(
                 }
 
             } else {
+                // Para chats grupales
                 val chatSnap = chatsRef.get().await()
                 chatTitle = chatSnap.getString("name") ?: "Grupo sin nombre"
+
                 val membersList = chatSnap.get("participants") as? List<String> ?: emptyList()
                 val createdBy = chatSnap.getString("createdBy") ?: ""
 
+                // Mostrar aviso de quién te agregó
                 if (createdBy.isNotEmpty()) {
                     val creatorUser =
                         usersRef.document(createdBy).get().await().toObject(User::class.java)
+
                     val contactSnap = db.collection("users")
                         .document(currentUser.uid)
                         .collection("contacts")
                         .whereEqualTo("contactUserId", createdBy)
                         .get()
                         .await()
+
                     val contactDoc = contactSnap.documents.firstOrNull()
                     val displayName = when {
                         !contactDoc?.getString("name").isNullOrBlank() -> contactDoc?.getString("name")
@@ -157,23 +185,28 @@ fun ChatScreen(
                     else null
                 }
 
+                // Cargar nombres de cada miembro
                 for (uid in membersList) {
                     val userSnap = usersRef.document(uid).get().await()
                     val user = userSnap.toObject(User::class.java) ?: User(uid = uid)
+
                     val contactSnap = db.collection("users")
                         .document(currentUser.uid)
                         .collection("contacts")
                         .whereEqualTo("contactUserId", uid)
                         .get()
                         .await()
+
                     val contactDoc = contactSnap.documents.firstOrNull()
                     val contactName = contactDoc?.getString("name")
                     val contactPhone = contactDoc?.getString("phone")
+
                     val displayName = when {
                         !contactName.isNullOrBlank() -> contactName
                         !contactPhone.isNullOrBlank() -> contactPhone
                         else -> user.phone.ifEmpty { "Usuario desconocido" }
                     }
+
                     usersMap[uid] = user.copy(name = displayName)
                 }
             }
@@ -182,7 +215,7 @@ fun ChatScreen(
         }
     }
 
-    // Escuchar mensajes
+    // Escuchar mensajes en tiempo real
     LaunchedEffect(chatId) {
         messagesRef.orderBy("timestamp", Query.Direction.ASCENDING)
             .addSnapshotListener { snapshot, error ->
@@ -190,17 +223,19 @@ fun ChatScreen(
                     Toast.makeText(context, "Error al cargar mensajes: ${error.message}", Toast.LENGTH_SHORT).show()
                     return@addSnapshotListener
                 }
+                // Convertir documentos a objetos Message
                 messages = snapshot?.documents?.mapNotNull { it.toObject(Message::class.java) }
                     ?: emptyList()
             }
     }
 
     Scaffold(
+        // Barra superior
         topBar = {
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Foto de perfil simulada
+                        // Icono como foto de perfil
                         Icon(
                             Icons.Default.AccountCircle,
                             contentDescription = null,
@@ -220,22 +255,28 @@ fun ChatScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* Llamada de voz */ }) {
+                    IconButton(onClick = { /* Llamada */ }) {
                         Icon(Icons.Default.Call, contentDescription = "Llamar", tint = WhatsAppWhite)
                     }
                     IconButton(onClick = { /* Videollamada */ }) {
                         Icon(Icons.Default.Videocam, contentDescription = "Videollamada", tint = WhatsAppWhite)
                     }
-                    IconButton(onClick = { /* Menu */ }) {
+                    IconButton(onClick = { /* Menú */ }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "Más", tint = WhatsAppWhite)
                     }
                 },
                 colors = TopAppBarDefaults.mediumTopAppBarColors(containerColor = WhatsAppGreen)
             )
         },
+
+        // Fondo estilo WhatsApp
         containerColor = WhatsAppBackground,
+
+        // Barra inferior
         bottomBar = {
             Column {
+
+                // Vista previa de imagen antes de enviar
                 selectedImageUri?.let { uri ->
                     Row(
                         Modifier
@@ -250,6 +291,7 @@ fun ChatScreen(
                             modifier = Modifier.size(160.dp)
                         )
                         Column {
+                            // Botón enviar imagen
                             Button(onClick = {
                                 scope.launch {
                                     val inputStream: InputStream? =
@@ -283,6 +325,7 @@ fun ChatScreen(
                     }
                 }
 
+                // Caja de texto + botones
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -298,14 +341,16 @@ fun ChatScreen(
                         )
                     }
 
+                    // Adjuntar imagen
                     IconButton(onClick = { galleryLauncher.launch("image/*") }) {
                         Icon(
                             Icons.Default.AttachFile,
                             contentDescription = "Adjuntar",
                             tint = WhatsAppTextGray
-                        ) // clip para galería
+                        )
                     }
 
+                    // Cámara
                     IconButton(onClick = {
                         if (!hasCameraPermission) cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                         else cameraLauncher.launch(null)
@@ -314,9 +359,10 @@ fun ChatScreen(
                             Icons.Default.CameraAlt,
                             contentDescription = "Cámara",
                             tint = WhatsAppTextGray
-                        ) // cámara
+                        )
                     }
 
+                    // Input del mensaje
                     TextField(
                         value = inputText,
                         onValueChange = { inputText = it },
@@ -337,8 +383,9 @@ fun ChatScreen(
                         )
                     )
 
+                    // Si no hay texto, mostrar micrófono
                     if (inputText.isBlank()) {
-                        IconButton(onClick = { /* micrófono real */ }) {
+                        IconButton(onClick = { /* Micrófono */ }) {
                             Icon(
                                 Icons.Default.Mic,
                                 contentDescription = "Micrófono",
@@ -346,6 +393,7 @@ fun ChatScreen(
                             )
                         }
                     } else {
+                        // Botón de enviar texto
                         IconButton(onClick = {
                             val message = Message(
                                 chatId = chatId,
@@ -366,16 +414,18 @@ fun ChatScreen(
                         }
                     }
                 }
-
             }
         }
     ) { padding ->
+        // Lista de mensajes
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 12.dp, vertical = 4.dp)
         ) {
+
+            // Mensaje "te agregaron al grupo"
             if (chatType == "group" && groupAddedText != null) {
                 item {
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -391,6 +441,7 @@ fun ChatScreen(
                 }
             }
 
+            // Mostrar todos los mensajes
             items(messages) { msg ->
                 val isMe = msg.senderId == currentUser.uid
                 val senderName = if (isMe) "Yo" else usersMap[msg.senderId]?.name ?: "Desconocido"
@@ -402,10 +453,13 @@ fun ChatScreen(
                     horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start
                 ) {
                     Column(horizontalAlignment = if (isMe) Alignment.End else Alignment.Start) {
+
+                        // Mostrar nombre del remitente si es un grupo
                         if (!isMe && chatType == "group") {
                             Text(senderName, fontSize = 10.sp, color = WhatsAppTextGray)
                         }
 
+                        // Si el mensaje es una imagen
                         if (msg.type == "image") {
                             val decodedBitmap = remember(msg.content) {
                                 try {
@@ -414,6 +468,7 @@ fun ChatScreen(
                                 } catch (e: Exception) { null }
                             }
 
+                            // Mostrar imagen
                             if (decodedBitmap != null) {
                                 Image(
                                     bitmap = decodedBitmap.asImageBitmap(),
@@ -427,7 +482,9 @@ fun ChatScreen(
                             } else {
                                 Text("Error al mostrar imagen", color = Color.Red)
                             }
+
                         } else {
+                            // Mensaje de texto
                             Box(
                                 modifier = Modifier
                                     .background(
@@ -440,6 +497,7 @@ fun ChatScreen(
                             }
                         }
 
+                        // Hora del mensaje
                         Text(
                             text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(msg.timestamp)),
                             fontSize = 10.sp,
@@ -454,7 +512,7 @@ fun ChatScreen(
 }
 
 
-// 🔹 Conversión a Base64
+// Convertir imagen a Base64 (para enviarla por Firestore)
 fun encodeImageToBase64(bitmap: android.graphics.Bitmap): String {
     val baos = java.io.ByteArrayOutputStream()
     bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 70, baos)

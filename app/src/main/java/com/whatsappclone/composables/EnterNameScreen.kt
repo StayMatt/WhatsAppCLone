@@ -16,21 +16,18 @@ import com.whatsappclone.ui.theme.WhatsAppGreen
 import com.whatsappclone.ui.theme.WhatsAppTextGray
 import com.whatsappclone.ui.theme.WhatsAppWhite
 
-// Colores estilo WhatsApp
-
-
 @Composable
 fun EnterNameScreen(
-    phoneNumber: String,
-    onBack: () -> Unit,
-    onNameEntered: (String) -> Unit
+    phoneNumber: String,          // Número de teléfono que se muestra al usuario
+    onBack: () -> Unit,           // Acción al presionar "Atrás"
+    onNameEntered: (String) -> Unit // Callback cuando se guarda el nombre
 ) {
-    var name by remember { mutableStateOf("") }
-    var mensaje by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf("") }       // Texto ingresado por el usuario
+    var mensaje by remember { mutableStateOf("") }    // Mensaje de éxito o error
+    var isLoading by remember { mutableStateOf(false) } // Indicador de carga
 
-    val auth = FirebaseAuth.getInstance()
-    val firestore = FirebaseFirestore.getInstance()
+    val auth = FirebaseAuth.getInstance()             // Autenticación de Firebase
+    val firestore = FirebaseFirestore.getInstance()   // Instancia de Firestore
 
     Column(
         modifier = Modifier
@@ -41,6 +38,7 @@ fun EnterNameScreen(
     ) {
         Spacer(modifier = Modifier.height(32.dp))
 
+        // Título principal
         Text(
             text = "¡Casi listo!",
             style = MaterialTheme.typography.headlineSmall,
@@ -50,6 +48,7 @@ fun EnterNameScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        // Texto explicativo
         Text(
             text = "Para comenzar a chatear con tus amigos, necesitamos conocer tu nombre completo. Esto nos ayudará a mostrar tu perfil correctamente en los chats.",
             style = MaterialTheme.typography.bodyMedium,
@@ -60,6 +59,7 @@ fun EnterNameScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
+        // Campo para ingresar el nombre completo
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
@@ -80,12 +80,18 @@ fun EnterNameScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
+        // Botón para guardar el nombre
         Button(
             onClick = {
                 if (name.isNotBlank()) {
+
                     isLoading = true
                     val user = auth.currentUser
+
+                    // Verifica si el usuario está autenticado
                     if (user != null) {
+
+                        // Guardar nombre en Firestore
                         firestore.collection("users")
                             .document(user.uid)
                             .update("name", name)
@@ -101,6 +107,7 @@ fun EnterNameScreen(
                     } else {
                         mensaje = "Error: usuario no autenticado"
                     }
+
                 } else {
                     mensaje = "Por favor, ingresa tu nombre"
                 }
@@ -108,6 +115,7 @@ fun EnterNameScreen(
             colors = ButtonDefaults.buttonColors(containerColor = WhatsAppGreen),
             modifier = Modifier.fillMaxWidth()
         ) {
+            // Mostrar carga mientras envía datos
             if (isLoading)
                 CircularProgressIndicator(modifier = Modifier.size(24.dp), color = WhatsAppWhite)
             else
@@ -116,6 +124,7 @@ fun EnterNameScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Mostrar número
         Text(
             text = "Número registrado: $phoneNumber",
             style = MaterialTheme.typography.bodySmall,
@@ -126,10 +135,12 @@ fun EnterNameScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Botón para regresar
         TextButton(onClick = onBack) {
             Text("Atrás", color = WhatsAppGreen)
         }
 
+        // Mostrar mensaje de éxito o error
         if (mensaje.isNotBlank()) {
             Spacer(modifier = Modifier.height(16.dp))
             Text(
